@@ -10,6 +10,14 @@ def save_annotated_image(image_path, annotated_image):
     cv2.imwrite(output_path, annotated_image)
     print(f"Annotated image saved at: {output_path}")
 
+def save_rgb_matrix(image_path, rgb_matrix):
+    base_name, ext = os.path.splitext(image_path)
+    txt_path = f"{base_name}_rgb_matrix.txt"
+    with open(txt_path, 'w') as file:
+        for row in rgb_matrix:
+            file.write(" ".join(map(str, row)) + "\n")
+    print(f"RGB matrix saved at: {txt_path}")
+
 def main(image_path):
     # Load an image
     image = cv2.imread(image_path)
@@ -37,6 +45,9 @@ def main(image_path):
         rgb[i, 1] = int(round(rgb_raw[3 * i + 1, 1]))
         rgb[i, 2] = int(round(rgb_raw[3 * i + 2, 1]))
     print(rgb)
+
+    # Save RGB matrix as a text file
+    save_rgb_matrix(image_path, rgb)
 
     # Crop image to around where color chart was detected
     boxes = cc.getBox()
