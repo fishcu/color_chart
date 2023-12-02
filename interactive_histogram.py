@@ -7,14 +7,11 @@ import time
 import cv2
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import numpy as np
+from scipy.stats import wasserstein_distance
+import matplotlib.pyplot as plt
 
-# from PIL import Image
-# from PIL.ExifTags import TAGS
-
-from cc_extract_rgb import process_image
-from get_loss import compute_delta_e_values
-
-# Function to move the file to a different directory with appended loss
+from ruderman import rgb_to_lab
 
 
 def move_file_with_loss(file_path, loss):
@@ -49,10 +46,11 @@ def is_jpeg_file(file_path):
 
 
 class MyHandler(FileSystemEventHandler):
-    def __init__(self, ref_rgb):
+    def __init__(self, ref_hist, dynamic_range):
         super().__init__()
         self.min_loss = float('inf')  # Initialize with positive infinity
-        self.ref_rgb = ref_rgb
+        self.ref_hist = ref_hist
+        self.dynamic_range = dynamic_range
 
     def on_created(self, event):
         if event.is_directory:
@@ -66,11 +64,16 @@ class MyHandler(FileSystemEventHandler):
         test_file_path = str(Path(event.src_path)).replace('\\', '/')
         test_image = cv2.imread(test_file_path)
 
-        test_rgb, _ = process_image(test_image)
+        test_lab = rgb_to_lab(test_image)
 
-        # print(test_rgb)
+        losses = []
+        for c in range(3):
+            test_hist = cv2.calcHist([test_lab], [c], None, [
+                                     256], self.dynamic_range[c])
+            losses.append(ref_hist[i], test_hist)
 
-        current_loss = compute_delta_e_values(ref_rgb, test_rgb)[-1]
+        # RMS loss
+        current_loss = np.sqrt(np.mean(losses**2))
 
         if current_loss + 1.e-3 < self.min_loss:
             self.min_loss = current_loss
@@ -90,8 +93,8 @@ class MyHandler(FileSystemEventHandler):
 # Main function to watch the directory
 
 
-def watch_directory(ref_rgb, directory_path):
-    event_handler = MyHandler(ref_rgb)
+def watch_directory(directory_path, ref_hist, dynamic_range):
+    event_handler = MyHandler(ref_hist, dynamic_range)
     observer = Observer()
     observer.schedule(event_handler, path=directory_path, recursive=False)
     observer.start()
@@ -104,28 +107,12 @@ def watch_directory(ref_rgb, directory_path):
 
     observer.join()
 
-# def pretty_print_exif(exif_data):
-#     for tag, value in exif_data.items():
-#         tag_name = TAGS.get(tag, tag)
-#         print(f"{tag_name}: {value}")
-
-# def read_exif(image_path):
-#     try:
-#         with Image.open(image_path) as img:
-#             exif_data = img._getexif()
-#             if exif_data is not None:
-#                 pretty_print_exif(exif_data)
-#             else:
-#                 print("No EXIF data found.")
-#     except Exception as e:
-#         print(f"Error reading EXIF data: {e}")
-
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python script.py <reference_image> <directory_path>")
         sys.exit(1)
-    
+
     directory_path = sys.argv[2]
     if not os.path.isdir(directory_path):
         print("Error: The specified path is not a directory.")
@@ -133,8 +120,27 @@ if __name__ == "__main__":
 
     ref_path = sys.argv[1]
     ref_img = cv2.imread(ref_path)
-    ref_rgb, _ = process_image(ref_img)
+    ref_lab = rgb_to_lab(ref_img)
+    ref_hist = []
+    dynamic_range = []
+    for c in range(3):
+        dynamic_range.append(
+            [np.min(ref_lab[:, :, c]), np.max(ref_lab[:, :, c])])
+        print(dynamic_range[c])
+        ref_hist.append(cv2.calcHist(
+            [ref_lab], [c], None, [256], dynamic_range[c]))
 
-    print(f"Reference image analyzed successfully. Waiting for new images in {directory_path}")
+    colors = ['blue', 'green', 'red']
+    for i, hist in enumerate(ref_hist):
+        plt.plot(hist, color=colors[i])
 
-    watch_directory(ref_rgb, directory_path)
+    # plt.title('Histograms for Each Channel')
+    # plt.xlabel('Pixel Value')
+    # plt.ylabel('Frequency')
+    # plt.legend(['L', 'a', 'b'])
+    # plt.show()
+
+    print(f"Reference image analyzed successfully. Waiting for new images in {
+          directory_path}")
+
+    watch_directory(directory_path, ref_hist, dynamic_range)
