@@ -3,6 +3,7 @@ import sys
 import time
 from pathlib import Path
 import time
+import shutil
 
 import cv2
 from watchdog.observers import Observer
@@ -26,12 +27,17 @@ def move_file_with_loss(file_path, loss):
     new_file_name = f"{file_name}_loss{loss:.3f}{file_ext}"
     new_file_path = os.path.join(moved_dir, new_file_name)
 
-    # Move the file to the new directory
+    # Move and overwrite
     try:
-        os.rename(file_path, new_file_path)
-    except FileExistsError:
-        # Ignore the error silently
-        pass
+        shutil.move(file_path, new_file_path)
+    except shutil.Error:
+        # Handle any error that shutil.move might raise
+        try:
+            # If an error occurs, try to copy and overwrite the file
+            shutil.copy2(file_path, new_file_path)
+            os.remove(file_path)  # Remove the original file after copying
+        except Exception as e:
+            print(f"Error: {e}")
     return new_file_path
 
 
@@ -59,21 +65,25 @@ class MyHandler(FileSystemEventHandler):
         if not is_jpeg_file(event.src_path):
             return  # Ignore non-jpeg files
 
-        time.sleep(1)
+        time.sleep(0.2)
 
         test_file_path = str(Path(event.src_path)).replace('\\', '/')
         test_image = cv2.imread(test_file_path)
 
         test_lab = rgb_to_lab(test_image)
+        # test_lab = cv2.cvtColor(test_image, cv2.COLOR_BGR2LAB)
 
         losses = []
         for c in range(3):
-            test_hist = cv2.calcHist([test_lab], [c], None, [
-                                     256], self.dynamic_range[c])
-            losses.append(ref_hist[i], test_hist)
+            h = cv2.calcHist(
+                [test_lab], [c], None, [256], self.dynamic_range[c])
+            cv2.normalize(h, h, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+            losses.append(cv2.compareHist(ref_hist[c], h, cv2.HISTCMP_BHATTACHARYYA))
+            # losses.append(wasserstein_distance(ref_hist[c], h.flatten()))
+        print(losses)
 
         # RMS loss
-        current_loss = np.sqrt(np.mean(losses**2))
+        current_loss = 1000 * np.sqrt(np.mean(np.array(losses)**2))
 
         if current_loss + 1.e-3 < self.min_loss:
             self.min_loss = current_loss
@@ -121,18 +131,22 @@ if __name__ == "__main__":
     ref_path = sys.argv[1]
     ref_img = cv2.imread(ref_path)
     ref_lab = rgb_to_lab(ref_img)
+    # ref_lab = cv2.cvtColor(ref_img, cv2.COLOR_BGR2LAB)
+
     ref_hist = []
     dynamic_range = []
     for c in range(3):
         dynamic_range.append(
             [np.min(ref_lab[:, :, c]), np.max(ref_lab[:, :, c])])
         print(dynamic_range[c])
-        ref_hist.append(cv2.calcHist(
-            [ref_lab], [c], None, [256], dynamic_range[c]))
+        h = cv2.calcHist(
+            [ref_lab], [c], None, [256], dynamic_range[c])
+        cv2.normalize(h, h, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        ref_hist.append(h.flatten())
 
-    colors = ['blue', 'green', 'red']
-    for i, hist in enumerate(ref_hist):
-        plt.plot(hist, color=colors[i])
+    # colors = ['blue', 'green', 'red']
+    # for i, hist in enumerate(ref_hist):
+    #     plt.plot(hist, color=colors[i])
 
     # plt.title('Histograms for Each Channel')
     # plt.xlabel('Pixel Value')
