@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 from skimage import color
 
-def process_image(image):
+def get_test_chart_rgb(image):
     height, width = image.shape[:2]
 
     # Create a CCheckerDetector object
@@ -108,8 +108,8 @@ if __name__ == "__main__":
     test_image = cv2.imread(test_image_path)
 
     # Process the image and get the RGB matrix
-    ref_rgb_matrix, ref_crop_box = process_image(ref_image)
-    test_rgb_matrix, test_crop_box = process_image(test_image)
+    ref_rgb_matrix, ref_crop_box = get_test_chart_rgb(ref_image)
+    test_rgb_matrix, test_crop_box = get_test_chart_rgb(test_image)
 
     # Save annotated image
     # save_annotated_image(ref_image, ref_rgb_matrix, ref_crop_box, ref_image_path)
