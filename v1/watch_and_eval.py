@@ -3,6 +3,7 @@ import sys
 import time
 from pathlib import Path
 import time
+import shutil
 
 import cv2
 from watchdog.observers import Observer
@@ -29,25 +30,23 @@ def lab2srgb(data):
     return color.lab2rgb(data) * 255.0
 
 
+def calculate_colorfulness(image_lab):
+    a_channel, b_channel = image_lab[:, :, 1], image_lab[:, :, 2]
+    chroma = np.sqrt(np.square(a_channel) + np.square(b_channel))
+    return chroma
+
+
 def calculate_rmse(img1, img2):
-    """
-    Calculate Root Mean Squared Error (RMSE) between two images.
-
-    Parameters:
-    - img1: NumPy array representing the first image.
-    - img2: NumPy array representing the second image.
-
-    Returns:
-    - rmse: Root Mean Squared Error between the two images.
-    """
     # Ensure the images have the same shape
     assert img1.shape == img2.shape, "Images must have the same shape"
 
     # Calculate squared difference between pixel values
-    squared_diff = (img1.astype(np.float64) - img2.astype(np.float64)) ** 2
+    delta_e_sq = np.sum((img1 - img2) ** 2, axis=2)
 
+    squared_chroma = np.square(img1[:, :, 1]) + np.square(img1[:, :, 2])
+    
     # Calculate mean squared error
-    mean_squared_error = np.mean(squared_diff)
+    mean_squared_error = np.mean(delta_e_sq * squared_chroma)
 
     # Calculate Root Mean Squared Error (RMSE)
     rmse = np.sqrt(mean_squared_error)
@@ -67,12 +66,17 @@ def move_file_with_loss(file_path, loss):
     new_file_name = f"{file_name}_loss{loss:.3f}{file_ext}"
     new_file_path = os.path.join(moved_dir, new_file_name)
 
-    # Move the file to the new directory
+    # Move and overwrite
     try:
-        os.rename(file_path, new_file_path)
-    except FileExistsError:
-        # Ignore the error silently
-        pass
+        shutil.move(file_path, new_file_path)
+    except shutil.Error:
+        # Handle any error that shutil.move might raise
+        try:
+            # If an error occurs, try to copy and overwrite the file
+            shutil.copy2(file_path, new_file_path)
+            os.remove(file_path)  # Remove the original file after copying
+        except Exception as e:
+            print(f"Error: {e}")
     return new_file_path
 
 
@@ -139,7 +143,7 @@ class RMSEEval(FileSystemEventHandler):
         if not is_jpeg_file(event.src_path):
             return  # Ignore non-jpeg files
 
-        time.sleep(0.5)
+        time.sleep(0.2)
 
         test_file_path = str(Path(event.src_path)).replace('\\', '/')
         test_image = io.imread(test_file_path)

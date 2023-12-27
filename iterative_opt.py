@@ -3,39 +3,10 @@ import os
 import cv2
 import numpy as np
 
-from cv2 import mcc
-from skimage import color
+from natsort import natsorted
 
-
-def get_chart_rgb(image):
-    height, width = image.shape[:2]
-
-    # Create a CCheckerDetector object
-    detector = mcc.CCheckerDetector.create()
-
-    # Detect the color chart in the image
-    if not detector.process(image, mcc.MCC24):
-        raise RuntimeError("Detection failed")
-
-    # Get best detected chart
-    cc = detector.getBestColorChecker()
-
-    # Get RGB values
-    rgb_raw = cc.getChartsRGB()
-
-    rgb = np.zeros((24, 3))
-    for i in range(24):
-        rgb[i, 0] = rgb_raw[3 * i, 1]
-        rgb[i, 1] = rgb_raw[3 * i + 1, 1]
-        rgb[i, 2] = rgb_raw[3 * i + 2, 1]
-
-    return rgb.reshape((-1, 3))
-
-
-def get_chart_lab(image):
-    rgb = get_chart_rgb(image)
-    return color.rgb2lab(rgb / 255.0)
-
+from chart import *
+from loss import *
 
 if __name__ == "__main__":
     import sys
@@ -54,6 +25,7 @@ if __name__ == "__main__":
 
     test_img_path = sys.argv[2]
     test_img = cv2.imread(test_img_path)
+
     # X in previous definition
     print("Processing test image...")
     test_lab = get_chart_lab(test_img)
@@ -65,6 +37,7 @@ if __name__ == "__main__":
     files = os.listdir(d_img_dir)
     img_files = [file for file in files if file.lower().endswith(
         ('.jpg', '.jpeg', '.png'))]
+    img_files = natsorted(img_files)
     if not img_files:
         print(f"No JPEG files found in '{d_img_dir}'.")
         sys.exit(1)
@@ -87,8 +60,21 @@ if __name__ == "__main__":
         rhs += np.dot(np.transpose(deltas[:, :, d]),
                       ref_lab[:, d] - test_lab[:, d])
     w = np.linalg.solve(lhs, rhs)
+    print(f"Color discrepancy before adjustments:    {
+          round(loss(test_lab, ref_lab, deltas, np.zeros((num_controls))), 2)}")
+    print(f"Idealized discrepancy after adjustments: {
+          round(loss(test_lab, ref_lab, deltas, w), 2)}")
 
     # Show result
-    print("=========================================\nDo the following adjustments and iterate:")
-    for i in range(num_controls):
-        print(f"{img_files[i]:<40}: Adjust by {round(w[i])}")
+    max_length = max(len(file) for file in img_files)
+    max_adj = 2
+    w = w.round()
+    if np.any(w != 0):
+        print("=========================================\nDo the following adjustments and iterate:")
+        for i in range(num_controls):
+            if abs(w[i]) > max_adj:
+                w[i] = max_adj * np.sign(w[i])
+            if w[i] != 0:
+                print(f"{img_files[i]:<{max_length + 1}}: Adjust by {w[i]}")
+    else:
+        print("You found approximately optimal settings! It's still recommended to try a few settings around the current optimum to see if it can be improved a bit.")

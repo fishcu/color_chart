@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 from skimage import color
 
+
 def get_test_chart_rgb(image):
     height, width = image.shape[:2]
 
@@ -78,7 +79,8 @@ def save_annotated_image(image, rgb_values, crop_box, image_path):
             # Draw R, G, B values on separate lines
             cv2.putText(cropped_image, f"R: {r}", (position[0], position[1] - 2 * text_size[1]), font, font_scale,
                         text_color, font_thickness, cv2.LINE_AA)
-            cv2.putText(cropped_image, f"G: {g}", position, font, font_scale, text_color, font_thickness, cv2.LINE_AA)
+            cv2.putText(cropped_image, f"G: {
+                        g}", position, font, font_scale, text_color, font_thickness, cv2.LINE_AA)
             cv2.putText(cropped_image, f"B: {b}", (position[0], position[1] + 2 * text_size[1]), font, font_scale,
                         text_color, font_thickness, cv2.LINE_AA)
 
@@ -112,8 +114,10 @@ if __name__ == "__main__":
     test_rgb_matrix, test_crop_box = get_test_chart_rgb(test_image)
 
     # Save annotated image
-    # save_annotated_image(ref_image, ref_rgb_matrix, ref_crop_box, ref_image_path)
-    # save_annotated_image(test_image, test_rgb_matrix, test_crop_box, test_image_path)
+    # save_annotated_image(ref_image, ref_rgb_matrix,
+    #                      ref_crop_box, ref_image_path)
+    # save_annotated_image(test_image, test_rgb_matrix,
+    #                      test_crop_box, test_image_path)
 
     # Flatten values and normalize
     ref_rgb_values = ref_rgb_matrix.reshape((-1, 3)) / 255.0
@@ -122,6 +126,10 @@ if __name__ == "__main__":
     # Convert to LAB colors
     ref_lab_values = color.rgb2lab(ref_rgb_values)
     test_lab_values = color.rgb2lab(test_rgb_values)
+
+    # Print loss
+    loss = np.sum((ref_lab_values - test_lab_values)**2)
+    print(f"Total color discrepancy: {round(loss, 2)}")
 
     # Extracting L*, a*, and b* values
     ref_L_values = ref_lab_values[:, 0]
@@ -134,8 +142,10 @@ if __name__ == "__main__":
     # Plotting the first graph with a* and b*
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
-    plt.scatter(ref_a_values, ref_b_values, c=ref_rgb_values, edgecolors='black', marker='o', s=200, label=os.path.basename(ref_image_path))
-    plt.scatter(test_a_values, test_b_values, c=test_rgb_values, edgecolors='black', marker='s', s=200, label=os.path.basename(test_image_path))
+    plt.scatter(ref_a_values, ref_b_values, c=ref_rgb_values, edgecolors='black',
+                marker='o', s=200, label=os.path.basename(ref_image_path))
+    plt.scatter(test_a_values, test_b_values, c=test_rgb_values, edgecolors='black',
+                marker='s', s=200, label=os.path.basename(test_image_path))
     plt.xlabel('red-green')
     plt.ylabel('yellow-blue')
     plt.title('a* vs b*')
@@ -144,12 +154,15 @@ if __name__ == "__main__":
 
     # Connect corresponding samples with thin black lines
     for i in range(len(ref_a_values)):
-        plt.plot([ref_a_values[i], test_a_values[i]], [ref_b_values[i], test_b_values[i]], 'k-', linewidth=0.5)
+        plt.plot([ref_a_values[i], test_a_values[i]], [
+                 ref_b_values[i], test_b_values[i]], 'k-', linewidth=0.5)
 
     # Plotting the second graph with L* and chroma
     plt.subplot(1, 2, 2)
-    plt.scatter(np.sqrt(ref_a_values**2 + ref_b_values**2), ref_L_values, c=ref_rgb_values, edgecolors='black', marker='o', s=200, label=os.path.basename(ref_image_path))
-    plt.scatter(np.sqrt(test_a_values**2 + test_b_values**2), test_L_values, c=test_rgb_values, edgecolors='black', marker='s', s=200, label=os.path.basename(test_image_path))
+    plt.scatter(np.sqrt(ref_a_values**2 + ref_b_values**2), ref_L_values, c=ref_rgb_values,
+                edgecolors='black', marker='o', s=200, label=os.path.basename(ref_image_path))
+    plt.scatter(np.sqrt(test_a_values**2 + test_b_values**2), test_L_values, c=test_rgb_values,
+                edgecolors='black', marker='s', s=200, label=os.path.basename(test_image_path))
     plt.xlabel('chroma')
     plt.ylabel('luminosity')
     plt.title('chroma vs L*')
@@ -159,7 +172,7 @@ if __name__ == "__main__":
     # Connect corresponding samples with thin black lines
     for i in range(len(ref_a_values)):
         plt.plot([np.sqrt(ref_a_values[i]**2 + ref_b_values[i]**2), np.sqrt(test_a_values[i]**2 + test_b_values[i]**2)],
-                [ref_L_values[i], test_L_values[i]], 'k-', linewidth=0.5)
+                 [ref_L_values[i], test_L_values[i]], 'k-', linewidth=0.5)
 
     # Adjust layout to prevent overlapping
     plt.tight_layout()
