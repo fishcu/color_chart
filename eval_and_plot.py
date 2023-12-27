@@ -79,8 +79,7 @@ def save_annotated_image(image, rgb_values, crop_box, image_path):
             # Draw R, G, B values on separate lines
             cv2.putText(cropped_image, f"R: {r}", (position[0], position[1] - 2 * text_size[1]), font, font_scale,
                         text_color, font_thickness, cv2.LINE_AA)
-            cv2.putText(cropped_image, f"G: {
-                        g}", position, font, font_scale, text_color, font_thickness, cv2.LINE_AA)
+            cv2.putText(cropped_image, f"G: {g}", position, font, font_scale, text_color, font_thickness, cv2.LINE_AA)
             cv2.putText(cropped_image, f"B: {b}", (position[0], position[1] + 2 * text_size[1]), font, font_scale,
                         text_color, font_thickness, cv2.LINE_AA)
 
