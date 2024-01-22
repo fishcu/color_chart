@@ -71,6 +71,31 @@ class ImageProcessor:
     def handle_mouse_move(self, x, y):
         self.points[self.dragging_point_index] = (int(x / self.scale), int(y / self.scale))
 
+    def calculate_perspective_transform(self):
+        if len(self.points) != 4:
+            return None
+
+        # Calculate the width and height of the undistorted image by summing the widths and heights of the distorted quadrilateral
+        width_A_B = np.linalg.norm(np.array(self.points[0]) - np.array(self.points[1]))
+        width_C_D = np.linalg.norm(np.array(self.points[2]) - np.array(self.points[3]))
+        height_A_D = np.linalg.norm(np.array(self.points[0]) - np.array(self.points[3]))
+        height_B_C = np.linalg.norm(np.array(self.points[1]) - np.array(self.points[2]))
+
+        width = int(width_A_B + width_C_D)
+        height = int(height_A_D + height_B_C)
+
+        # Define the points for the perspective transform
+        src_points = np.float32(self.points)
+        dst_points = np.float32([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]])
+
+        # Calculate the perspective transform matrix
+        M = cv2.getPerspectiveTransform(src_points, dst_points)
+
+        # Apply the perspective transform to the image
+        undistorted_img = cv2.warpPerspective(self.img, M, (width, height))
+
+        return undistorted_img
+
     def update_display_and_magnification(self):
         # Don't do heavy drawing stuff in call back too often
         current_time = time.time()
@@ -82,6 +107,11 @@ class ImageProcessor:
         self.display_img = self.img.copy() if self.scale >= 1 else cv2.resize(self.img, (0, 0), fx=self.scale, fy=self.scale)
         self.draw_points_and_lines()
         self.show_magnification()
+
+        # Calculate and display the perspective undistorted image
+        undistorted_img = self.calculate_perspective_transform()
+        if undistorted_img is not None:
+            cv2.imshow('Undistorted Image', undistorted_img)
 
     def draw_points_and_lines(self):
         for point in self.points:
@@ -138,7 +168,7 @@ class ImageProcessor:
         if len(self.points) == 4:
             print("Coordinates of the quadrilateral:")
             for point in self.points:
-                print(point)
+                print(f"{point[0]},{point[1]} ")
 
     def handle_key_press(self, k):
         dx, dy = 0, 0
