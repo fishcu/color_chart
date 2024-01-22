@@ -38,7 +38,8 @@ class KodakExtractor:
     def divide_into_cells_and_draw_rectangles(self, undistorted_img):
         cell_width = undistorted_img.shape[1] / self.num_cells_x
         cell_height = undistorted_img.shape[0] / self.num_cells_y
-        median_colors = []
+        median_colors = np.zeros(((self.num_cells_x - 1) * self.num_cells_y, 3))
+        num_proc = 0
 
         for i in range(self.num_cells_x):
             if i == 1:  # Skip the 2nd column
@@ -67,7 +68,8 @@ class KodakExtractor:
                 tmp = median_color[0]
                 median_color[0] = median_color[2]
                 median_color[2] = tmp
-                median_colors.append(median_color)
+                median_colors[num_proc] = median_color
+                num_proc += 1
 
         return undistorted_img, median_colors
 

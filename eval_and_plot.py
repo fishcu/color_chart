@@ -7,6 +7,7 @@ from skimage import color
 
 from chart import *
 from loss import *
+from kodak_extract import *
 
 # def get_test_chart_rgb(image):
 #     height, width = image.shape[:2]
@@ -94,15 +95,21 @@ from loss import *
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) != 3:
+    if not (len(sys.argv) == 3 or len(sys.argv) == 11):
         print("Usage: python script.py <ref_image_path> <test_image_path>")
+        print("For Kodak: python script.py <ref_image_path> p1 p2 p3 p4 <test_image_path> p1 p2 p3 p4")
         sys.exit(1)
 
-    ref_image_path = sys.argv[1]
-    test_image_path = sys.argv[2]
+    kodak_mode = len(sys.argv) == 11
 
-    ref_image = cv2.imread(ref_image_path)
-    test_image = cv2.imread(test_image_path)
+    if not kodak_mode:
+        ref_image_path = sys.argv[1]
+        test_image_path = sys.argv[2]
+        ref_image = cv2.imread(ref_image_path)
+        test_image = cv2.imread(test_image_path)
+    else:
+        ref_image_path = sys.argv[1]
+        test_image_path = sys.argv[6]
 
     # Process the image and get the RGB matrix
     # ref_rgb_matrix, ref_crop_box = get_test_chart_rgb(ref_image)
@@ -118,8 +125,18 @@ if __name__ == "__main__":
     # ref_rgb_values = ref_rgb_matrix.reshape((-1, 3)) / 255.0
     # test_rgb_values = test_rgb_matrix.reshape((-1, 3)) / 255.0
 
-    ref_rgb_values = get_chart_rgb(ref_image) / 255.0
-    test_rgb_values = get_chart_rgb(test_image) / 255.0
+    if not kodak_mode:
+        ref_rgb_values = get_chart_rgb(ref_image) / 255.0
+        test_rgb_values = get_chart_rgb(test_image) / 255.0
+    else:
+        ref_points = [tuple(map(int, point.split(',')))
+                      for point in sys.argv[2:6]]
+        ref_extractor = KodakExtractor(ref_image_path, ref_points)
+        ref_rgb_values = ref_extractor.process() / 255.0
+        test_points = [tuple(map(int, point.split(',')))
+                       for point in sys.argv[7:11]]
+        test_extractor = KodakExtractor(test_image_path, test_points)
+        test_rgb_values = test_extractor.process() / 255.0
 
     # Convert to LAB colors
     ref_lab_values = color.rgb2lab(ref_rgb_values)
@@ -138,12 +155,14 @@ if __name__ == "__main__":
     test_b_values = test_lab_values[:, 2]
 
     # Plotting the first graph with a* and b*
+    plot_size = 50
+
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
     plt.scatter(ref_a_values, ref_b_values, c=ref_rgb_values, edgecolors='black',
-                marker='o', s=200, label=os.path.basename(ref_image_path))
+                marker='o', s=plot_size, label=os.path.basename(ref_image_path))
     plt.scatter(test_a_values, test_b_values, c=test_rgb_values, edgecolors='black',
-                marker='s', s=200, label=os.path.basename(test_image_path))
+                marker='s', s=plot_size, label=os.path.basename(test_image_path))
     plt.xlabel('red-green')
     plt.ylabel('yellow-blue')
     plt.title('a* vs b*')
@@ -158,9 +177,9 @@ if __name__ == "__main__":
     # Plotting the second graph with L* and chroma
     plt.subplot(1, 2, 2)
     plt.scatter(np.sqrt(ref_a_values**2 + ref_b_values**2), ref_L_values, c=ref_rgb_values,
-                edgecolors='black', marker='o', s=200, label=os.path.basename(ref_image_path))
+                edgecolors='black', marker='o', s=plot_size, label=os.path.basename(ref_image_path))
     plt.scatter(np.sqrt(test_a_values**2 + test_b_values**2), test_L_values, c=test_rgb_values,
-                edgecolors='black', marker='s', s=200, label=os.path.basename(test_image_path))
+                edgecolors='black', marker='s', s=plot_size, label=os.path.basename(test_image_path))
     plt.xlabel('chroma')
     plt.ylabel('luminosity')
     plt.title('chroma vs L*')
