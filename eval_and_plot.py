@@ -16,7 +16,7 @@ from kodak_extract import *
 #     detector = mcc.CCheckerDetector.create()
 
 #     # Detect the color chart in the image
-#     if not detector.process(image, mcc.MCC24):
+#     if not detector.get_rgb_values(image, mcc.MCC24):
 #         raise RuntimeError("Detection failed")
 
 #     # Get best detected chart
@@ -105,11 +105,11 @@ if __name__ == "__main__":
     if not kodak_mode:
         ref_image_path = sys.argv[1]
         test_image_path = sys.argv[2]
-        ref_image = cv2.imread(ref_image_path)
-        test_image = cv2.imread(test_image_path)
     else:
         ref_image_path = sys.argv[1]
         test_image_path = sys.argv[6]
+    ref_image = cv2.imread(ref_image_path)
+    test_image = cv2.imread(test_image_path)
 
     # Process the image and get the RGB matrix
     # ref_rgb_matrix, ref_crop_box = get_test_chart_rgb(ref_image)
@@ -131,12 +131,12 @@ if __name__ == "__main__":
     else:
         ref_points = [tuple(map(int, point.split(',')))
                       for point in sys.argv[2:6]]
-        ref_extractor = KodakExtractor(ref_image_path, ref_points)
-        ref_rgb_values = ref_extractor.process() / 255.0
+        ref_extractor = KodakExtractor(ref_points)
+        ref_rgb_values = ref_extractor.get_rgb_values(ref_image) / 255.0
         test_points = [tuple(map(int, point.split(',')))
                        for point in sys.argv[7:11]]
-        test_extractor = KodakExtractor(test_image_path, test_points)
-        test_rgb_values = test_extractor.process() / 255.0
+        test_extractor = KodakExtractor(test_points)
+        test_rgb_values = test_extractor.get_rgb_values(test_image) / 255.0
 
     # Convert to LAB colors
     ref_lab_values = color.rgb2lab(ref_rgb_values)

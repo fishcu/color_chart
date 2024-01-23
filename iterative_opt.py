@@ -7,33 +7,53 @@ from natsort import natsorted
 
 from chart import *
 from loss import *
+from kodak_extract import *
 
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 4 and len(sys.argv) != 12:
         print("Usage: python script.py <path to reference image> <path to test image> <image directory>")
+        print("For Kodak: python script.py <ref_image_path> p1 p2 p3 p4 <test_image_path> p1 p2 p3 p4 <img_dir>")
         sys.exit(1)
 
-    ref_img_path = sys.argv[1]
-    ref_img = cv2.imread(ref_img_path)
+    kodak_mode = len(sys.argv) == 12
+
     # Y in previous definition
     print("Processing reference image...")
-    ref_lab = get_chart_lab(ref_img)
+    ref_img_path = sys.argv[1]
+    ref_img = cv2.imread(ref_img_path)
+    if not kodak_mode:
+        ref_lab = get_chart_lab(ref_img)
+    else:
+        ref_points = [tuple(map(int, point.split(',')))
+                      for point in sys.argv[2:6]]
+        ref_extractor = KodakExtractor(ref_points)
+        ref_lab = ref_extractor.get_lab_values(ref_img)
 
     num_color_pads = len(ref_lab)
 
-    test_img_path = sys.argv[2]
-    test_img = cv2.imread(test_img_path)
-
     # X in previous definition
     print("Processing test image...")
-    test_lab = get_chart_lab(test_img)
+    if not kodak_mode:
+        test_img_path = sys.argv[2]
+        test_img = cv2.imread(test_img_path)
+        test_lab = get_chart_lab(test_img)
+    else:
+        test_img_path = sys.argv[6]
+        test_img = cv2.imread(test_img_path)
+        test_points = [tuple(map(int, point.split(',')))
+                      for point in sys.argv[7:11]]
+        test_extractor = KodakExtractor(test_points)
+        test_lab = test_extractor.get_lab_values(test_img)
 
     assert len(test_lab) == num_color_pads
 
     # Get "D" vectors
-    d_img_dir = sys.argv[3]
+    if not kodak_mode:
+        d_img_dir = sys.argv[3]
+    else:
+        d_img_dir = sys.argv[11]
     files = os.listdir(d_img_dir)
     img_files = [file for file in files if file.lower().endswith(
         ('.jpg', '.jpeg', '.png'))]
@@ -49,7 +69,10 @@ if __name__ == "__main__":
         print(f"\tProcessing {file}...")
         file_path = os.path.join(d_img_dir, file)
         img = cv2.imread(file_path)
-        deltas[:, i, :] = get_chart_lab(img) - test_lab
+        if not kodak_mode:
+            deltas[:, i, :] = get_chart_lab(img) - test_lab
+        else:
+            deltas[:, i, :] = test_extractor.get_lab_values(img) - test_lab
 
     # Solve
     lambda_s = 1.0
