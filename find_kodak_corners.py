@@ -149,12 +149,13 @@ class ImageProcessor:
 
     def main(self):
         cv2.namedWindow(self.window_name)
+        cv2.namedWindow('Undistorted Image', cv2.WINDOW_NORMAL)
         cv2.setMouseCallback(self.window_name, self.draw_circle)
 
         while True:
             # Display the image
             cv2.imshow(self.window_name, self.display_img)
-            k = cv2.waitKey(16)
+            k = cv2.waitKey(66)
 
             if k == 27:  # ESC key to exit
                 break
@@ -167,8 +168,7 @@ class ImageProcessor:
         # Print the coordinates of the points
         if len(self.points) == 4:
             print("Coordinates of the quadrilateral:")
-            for point in self.points:
-                print(f"{point[0]},{point[1]} ")
+            print(" ".join(f"{point[0]},{point[1]}" for point in self.points))
 
     def handle_key_press(self, k):
         dx, dy = 0, 0
